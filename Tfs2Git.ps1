@@ -13,6 +13,7 @@ Param
 (
 	[Parameter(Mandatory = $True)]
 	[string]$TFSRepository,
+	[string]$TFSURL,
 	[string]$GitRepository = "ConvertedFromTFS",
 	[string]$WorkspaceName = "TFS2GIT",
 	[int]$StartingCommit,
@@ -158,9 +159,18 @@ function PrepareWorkspace
 
 	# Create the workspace and map it to the temporary directory we just created.
 	tf workspace /delete $WorkspaceName /noprompt
-	tf workspace /new /noprompt /comment:"Temporary workspace for converting a TFS repository to Git" $WorkspaceName
-	tf workfold /unmap /workspace:$WorkspaceName $/
-	tf workfold /map /workspace:$WorkspaceName $TFSRepository $TempDir
+	if (!$TFSURL)
+	{
+		tf workspace /new /noprompt /comment:"Temporary workspace for converting a TFS repository to Git" $WorkspaceName
+		tf workfold /unmap /workspace:$WorkspaceName $/
+		tf workfold /map /workspace:$WorkspaceName $TFSRepository $TempDir
+	}
+	else
+	{
+		tf workspace /new /noprompt /collection:$TFSURL /comment:"Temporary workspace for converting a TFS repository to Git" $WorkspaceName
+		tf workfold /unmap /workspace:$WorkspaceName $/
+		tf workfold /map /workspace:$WorkspaceName /collection:$TFSURL $TFSRepository $TempDir
+	}
 }
 
 
@@ -170,7 +180,14 @@ function GetAllChangesetsFromHistory
 {
 	$HistoryFileName = "history.txt"
 
-	tf history $TFSRepository /recursive /noprompt /format:brief | Out-File $HistoryFileName
+	if (!$TFSURL)
+	{
+		tf history $TFSRepository /recursive /noprompt /format:brief | Out-File $HistoryFileName
+	}
+	else
+	{
+		tf history $TFSRepository /collection:$TFSURL /recursive /noprompt /format:brief | Out-File $HistoryFileName
+	}
 
 	# Necessary, because Powershell has some 'issues' with current directory. 
 	# See http://huddledmasses.org/powershell-power-user-tips-current-directory/
