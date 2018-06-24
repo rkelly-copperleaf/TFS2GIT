@@ -98,26 +98,6 @@ function AreSpecifiedCommitsPresent([array]$ChangeSets)
 	}
 }
 
-# Build an array of changesets that are between the starting and the ending commit.
-function GetSpecifiedRangeFromHistory
-{
-	$ChangeSets = GetAllChangeSetsFromHistory
-
-	# Create an array
-	$FilteredChangeSets = @()
-
-	foreach ($ChangeSet in $ChangeSets)
-	{
-		if (($ChangeSet -ge $StartingCommit) -and ($ChangeSet -le $EndingCommit))
-		{
-			$FilteredChangeSets = $FilteredChangeSets + $ChangeSet
-		}
-	}
-
-	return $FilteredChangeSets
-}
-
-
 function GetTemporaryDirectory
 {
 	return $env:temp + "\workspace"
@@ -176,17 +156,24 @@ function PrepareWorkspace
 
 # Retrieve the history from Team Foundation Server, parse it line by line, 
 # and use a regular expression to retrieve the individual changeset numbers.
-function GetAllChangesetsFromHistory 
+function GetChangesetsFromHistory 
 {
 	$HistoryFileName = "history.txt"
 
+    $VersioNSpec= ""
+
+	if ($StartingCommit -and $EndingCommit)
+    {
+        $VersionSpec = "/version:C"+$StartingCommit+"~C"+$EndingCommit
+    }
+
 	if (!$TFSURL)
 	{
-		tf history $TFSRepository /recursive /noprompt /format:brief | Out-File $HistoryFileName
+		tf history $TFSRepository /recursive $VersionSpec /noprompt /format:brief | Out-File $HistoryFileName
 	}
 	else
 	{
-		tf history $TFSRepository /collection:$TFSURL /recursive /noprompt /format:brief | Out-File $HistoryFileName
+		tf history $TFSRepository /collection:$TFSURL $VersionSpec /recursive /noprompt /format:brief | Out-File $HistoryFileName
 	}
 
 	# Necessary, because Powershell has some 'issues' with current directory. 
@@ -330,16 +317,13 @@ function Main
 	CheckParameters
 	PrepareWorkspace
 
+    $ChangesetsFromHistory = GetChangeSetsFromHistory
 	if ($StartingCommit -and $EndingCommit)
 	{
 		Write-Host "Filtering history..."
-		AreSpecifiedCommitsPresent(GetAllChangeSetsFromHistory)
-		Convert(GetSpecifiedRangeFromHistory)
+		AreSpecifiedCommitsPresent($ChangesetsFromHistory)
 	}
-	else
-	{
-		Convert(GetAllChangeSetsFromHistory)
-	}
+    Convert($ChangesetsFromHistory)
 
 	CloneToLocalBareRepository
 	CleanUp
