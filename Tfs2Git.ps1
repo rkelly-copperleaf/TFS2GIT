@@ -252,12 +252,17 @@ function Convert ([array]$ChangeSets)
 		git rm $CommitMessageFileName --cached --force		
 
 		$CommitMsg = Get-Content $CommitMessageFileName		
+
+        $ChangeTimestamp = $CommitMsg | Select-String -Pattern "Date:"
+        $DateMatch = ([regex]'Date: (.+)').Match($ChangeTimestamp)
+        $CommitTimestamp = [DateTime]::Parse($DateMatch.Groups[1].Value).ToString("yyyy-MM-dd HH:mm:ss")
+        
 		$Match = ([regex]'User: (\w+)').Match($commitMsg)
 		if ($UserMapping.Count -gt 0 -and $Match.Success -and $UserMapping.ContainsKey($Match.Groups[1].Value)) 
 		{	
 			$Author = $userMapping[$Match.Groups[1].Value]
 			Write-Host "Found user" $Author "in user mapping file."
-			git commit --file $CommitMessageFileName --author $Author | Out-Null									
+			git commit --file $CommitMessageFileName --date "$CommitTimestamp" --author $Author | Out-Null									
 		}
 		else 
 		{	
@@ -267,7 +272,7 @@ function Convert ([array]$ChangeSets)
 				$GitUserEmail = git config user.email				
 				Write-Host "Could not find user" $Match.Groups[1].Value "in user mapping file. The default configured user" $GitUserName $GitUserEmail "will be used for this commit."
 			}
-			git commit --file $CommitMessageFileName | Out-Null
+			git commit --file $CommitMessageFileName --date "$CommitTimestamp" | Out-Null
 		}
 		popd 
 	}
